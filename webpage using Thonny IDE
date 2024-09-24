@@ -1,0 +1,60 @@
+
+ display temperature sensor data on a webpage using Thonny IDE
+
+
+import network
+import socket
+import time
+import dht
+from machine import Pin
+
+# Setup DHT22 sensor
+sensor = dht.DHT22(Pin(2))  # D4 pin (GPIO2)
+
+# Connect to Wi-Fi
+ssid = 'your_SSID'
+password = 'your_PASSWORD'
+
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+wlan.connect(ssid, password)
+
+# Wait for connection
+while not wlan.isconnected():
+    time.sleep(1)
+
+print('Connected to Wi-Fi:', wlan.ifconfig())
+
+# Create a simple web server
+addr = socket.getaddrinfo('0.0.0.0', 80)[0]
+s = socket.socket()
+s.bind(addr)
+s.listen(1)
+
+print('Listening on', addr)
+
+while True:
+    cl, addr = s.accept()
+    print('Client connected from', addr)
+    request = cl.recv(1024)
+    cl.send('HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n')
+
+    try:
+        sensor.measure()
+        temperature = sensor.temperature()
+        humidity = sensor.humidity()
+        response = f"""
+        <html>
+        <head><title>Temperature Sensor</title></head>
+        <body>
+            <h1>Temperature and Humidity</h1>
+            <p>Temperature: {temperature} °C</p>
+            <p>Humidity: {humidity} %</p>
+        </body>
+        </html>
+        """
+    except OSError as e:
+        response = "<html><body><h1>Error reading sensor</h1></body></html>"
+
+    cl.send(response)
+    cl.close()
