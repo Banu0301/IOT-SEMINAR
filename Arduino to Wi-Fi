@@ -1,0 +1,34 @@
+
+#ESP32 board
+
+
+#include "WiFi.h"  // Include the Wi-Fi library
+
+// Replace with your network credentials
+const char* ssid = "your_SSID";  // Your WiFi name (SSID)
+const char* password = "your_PASSWORD";  // Your WiFi password
+
+void setup() {
+  // Start the Serial Monitor
+  Serial.begin(115200);
+  
+  // Begin connecting to Wi-Fi
+  Serial.println("Connecting to Wi-Fi...");
+  WiFi.begin(ssid, password);
+  
+  // Wait until the device connects to the network
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+
+  // Once connected, print the IP address
+  Serial.println("");
+  Serial.println("Wi-Fi connected!");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void loop() {
+  // The main loop does nothing, connection happens in setup()
+}
