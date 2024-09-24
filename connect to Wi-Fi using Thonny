@@ -1,0 +1,30 @@
+import network
+import time
+
+# Wi-Fi credentials
+ssid = "your_SSID"
+password = "your_PASSWORD"
+
+def connect_to_wifi():
+    # Create a WLAN station object
+    wlan = network.WLAN(network.STA_IF)
+    
+    # Activate the station interface
+    wlan.active(True)
+    
+    # Connect to Wi-Fi network
+    wlan.connect(ssid, password)
+    
+    print("Connecting to Wi-Fi...")
+    
+    # Wait until the device is connected
+    while not wlan.isconnected():
+        print(".", end="")
+        time.sleep(1)
+
+    # Once connected, print the IP address
+    print("\nWi-Fi connected!")
+    print("IP address:", wlan.ifconfig()[0])
+
+# Call the function to connect
+connect_to_wifi()
