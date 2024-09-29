@@ -1,6 +1,8 @@
 
 #ESP32 board
 
+#ESP32 as a Client (Connecting through Router)
+
 
 #include "WiFi.h"  // Include the Wi-Fi library
 
