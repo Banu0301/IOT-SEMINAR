@@ -32,3 +32,38 @@ void setup() {
 void loop() {
   // The main loop does nothing, connection happens in setup()
 }
+
+
+
+
+
+
+
+#ESP32 AS acess point
+
+
+
+#include "WiFi.h"  // Include the Wi-Fi library
+
+// Replace with your desired network credentials for the ESP32 access point
+const char* ssid = "ESP32_AP";  // Set your AP name (SSID)
+const char* password = "123456789";  // Set your AP password (min 8 characters)
+
+void setup() {
+  // Start the Serial Monitor
+  Serial.begin(115200);
+  
+  // Create an access point
+  Serial.println("Setting up Access Point...");
+  WiFi.softAP(ssid, password);  // Start the access point with the provided SSID and password
+  
+  // Print the IP address of the access point
+  Serial.println("Access Point established!");
+  Serial.print("AP IP address: ");
+  Serial.println(WiFi.softAPIP());  // Print the IP address of the access point
+}
+
+void loop() {
+  // The main loop does nothing, AP setup is handled in setup()
+}
+
