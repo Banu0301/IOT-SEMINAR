@@ -4,57 +4,96 @@
 
 import network
 import socket
-import time
 import dht
-from machine import Pin
+import machine
+import time
+import gc
 
-# Setup DHT22 sensor
-sensor = dht.DHT22(Pin(2))  # D4 pin (GPIO2)
+# Set up garbage collection to manage memory
+gc.collect()
+
+# Configure your ESP32 Wi-Fi settings
+ssid = 'Infinix NOTE 30 5G'
+password = '6pecubnv6e4gi2i'
 
 # Connect to Wi-Fi
-ssid = 'your_SSID'
-password = 'your_PASSWORD'
+def connect_to_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print('Connecting to WiFi...')
+        wlan.connect(ssid, password)
+        while not wlan.isconnected():
+            pass
+    print('Connected to WiFi')
+    print(wlan.ifconfig())  # Show the IP, subnet, and gateway
 
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
-wlan.connect(ssid, password)
+# DHT11 sensor setup
+dht_pin = machine.Pin(4)  # Use your GPIO pin number here
+sensor = dht.DHT11(dht_pin)
 
-# Wait for connection
-while not wlan.isconnected():
-    time.sleep(1)
+# Web page to display temperature
+def web_page(temp, hum):
+    html = """<html>
+                <head>
+                    <title>Temperature Sensor</title>
+                    <meta http-equiv="refresh" content="5">
+                </head>
+                <body>
+                    <h1>ESP32 Temperature and Humidity</h1>
+                    <p>Temperature: <strong>{0}°C</strong></p>
+                    <p>Humidity: <strong>{1}%</strong></p>
+                </body>
+              </html>""".format(temp, hum)
+    return html
 
-print('Connected to Wi-Fi:', wlan.ifconfig())
+# Create a socket server
+def start_web_server():
+    addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+    s = socket.socket()
+    s.bind(addr)
+    s.listen(1)
+    print('Listening on', addr)
 
-# Create a simple web server
-addr = socket.getaddrinfo('0.0.0.0', 80)[0]
-s = socket.socket()
-s.bind(addr)
-s.listen(1)
+    while True:
+        try:
+            # Wait for a client to connect
+            conn, addr = s.accept()
+            print('Client connected from', addr)
+            request = conn.recv(1024)
 
-print('Listening on', addr)
+            # Read sensor data
+            try:
+                sensor.measure()
+                temp = sensor.temperature()
+                hum = sensor.humidity()
+            except OSError as e:
+                print('Failed to read sensor:', e)
+                temp = "N/A"
+                hum = "N/A"
 
-while True:
-    cl, addr = s.accept()
-    print('Client connected from', addr)
-    request = cl.recv(1024)
-    cl.send('HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n')
+            # Send HTTP response
+            response = web_page(temp, hum)
+            conn.send('HTTP/1.1 200 OK\r\n')
+            conn.send('Content-Type: text/html\r\n')
+            conn.send('Connection: close\r\n\r\n')
+            conn.sendall(response)
+            conn.close()
 
-    try:
-        sensor.measure()
-        temperature = sensor.temperature()
-        humidity = sensor.humidity()
-        response = f"""
-        <html>
-        <head><title>Temperature Sensor</title></head>
-        <body>
-            <h1>Temperature and Humidity</h1>
-            <p>Temperature: {temperature} °C</p>
-            <p>Humidity: {humidity} %</p>
-        </body>
-        </html>
-        """
-    except OSError as e:
-        response = "<html><body><h1>Error reading sensor</h1></body></html>"
+            # Add a small delay to avoid brownout issues
+            time.sleep(2)
 
-    cl.send(response)
-    cl.close()
+        except OSError as e:
+            conn.close()
+            print('Connection closed due to error:', e)
+
+# Main function to start the program
+def main():
+    connect_to_wifi()
+    start_web_server()
+
+# Run the main function
+if __name__ == '__main__':
+    main()
+
+
