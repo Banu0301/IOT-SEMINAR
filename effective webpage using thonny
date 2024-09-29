@@ -1,0 +1,185 @@
+
+import network
+import socket
+import dht
+import machine
+import time
+import gc
+
+# Set up garbage collection to manage memory
+gc.collect()
+
+# Configure your ESP32 Wi-Fi settings
+ssid = 'Infinix NOTE 30 5G'
+password = '6pecubnv6e4gi2i'
+
+# Connect to Wi-Fi
+def connect_to_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print('Connecting to WiFi...')
+        wlan.connect(ssid, password)
+        while not wlan.isconnected():
+            pass
+    print('Connected to WiFi')
+    print(wlan.ifconfig())  # Show the IP, subnet, and gateway
+
+# DHT11 sensor setup
+dht_pin = machine.Pin(4)  # Use your GPIO pin number here
+sensor = dht.DHT11(dht_pin)
+
+
+
+# Web page to display temperature and humidity with enhancements
+def web_page(temp, hum):
+    html = """<html>
+                <head>
+                    <title>Temperature and Humidity Sensor</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            text-align: center;
+                            margin-top: 50px;
+                            background-color: #f4f4f9;
+                        }
+                        h1 {
+                            color: #333;
+                        }
+                        p {
+                            font-size: 20px;
+                        }
+                        .container {
+                            display: inline-block;
+                            padding: 20px;
+                            background-color: #fff;
+                            border-radius: 10px;
+                            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+                        }
+                        .sensor-data {
+                            font-weight: bold;
+                            font-size: 30px;
+                            color: #007BFF;
+                        }
+                        #chartContainer {
+                            width: 80%;
+                            margin: 20px auto;
+                        }
+                    </style>
+                    <script>
+                        function refreshData() {
+                            fetch('/').then(function(response) {
+                                return response.text();
+                            }).then(function(data) {
+                                document.getElementById('temperature').innerHTML = data.split('|')[0] + '°C';
+                                document.getElementById('humidity').innerHTML = data.split('|')[1] + '%';
+                            });
+                        }
+                        setInterval(refreshData, 5000);  // Fetch new data every 5 seconds
+                    </script>
+                </head>
+                <body>
+                    <h1>ESP32 Temperature and Humidity Monitor</h1>
+                    <div class="container">
+                        <p>Temperature: <span id="temperature" class="sensor-data">{0}°C</span></p>
+                        <p>Humidity: <span id="humidity" class="sensor-data">{1}%</span></p>
+                    </div>
+                    <div id="chartContainer">
+                        <canvas id="tempHumChart"></canvas>
+                    </div>
+                    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                    <script>
+                        // Chart.js to display temperature and humidity trend
+                        var ctx = document.getElementById('tempHumChart').getContext('2d');
+                        var tempHumChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: ['T1', 'T2', 'T3', 'T4', 'T5'],  // Placeholder timestamps
+                                datasets: [
+                                    {
+                                        label: 'Temperature (°C)',
+                                        data: [20, 22, 23, 21, 24],  // Placeholder data
+                                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                        borderColor: 'rgba(255, 99, 132, 1)',
+                                        borderWidth: 1,
+                                        fill: true
+                                    },
+                                    {
+                                        label: 'Humidity (%)',
+                                        data: [50, 55, 53, 60, 58],  // Placeholder data
+                                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                        borderColor: 'rgba(54, 162, 235, 1)',
+                                        borderWidth: 1,
+                                        fill: true
+                                    }
+                                ]
+                            },
+                            options: {
+                                scales: {
+                                    y: {
+                                        beginAtZero: true
+                                    }
+                                }
+                            }
+                        });
+                    </script>
+                </body>
+              </html>""".format(temp, hum)
+    return html
+
+
+
+
+
+
+
+
+# Create a socket server
+def start_web_server():
+    addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+    s = socket.socket()
+    s.bind(addr)
+    s.listen(1)
+    print('Listening on', addr)
+
+    while True:
+        try:
+            # Wait for a client to connect
+            conn, addr = s.accept()
+            print('Client connected from', addr)
+            request = conn.recv(1024)
+
+            # Read sensor data
+            try:
+                sensor.measure()
+                temp = sensor.temperature()
+                hum = sensor.humidity()
+            except OSError as e:
+                print('Failed to read sensor:', e)
+                temp = "N/A"
+                hum = "N/A"
+
+            # Send HTTP response
+            response = web_page(temp, hum)
+            conn.send('HTTP/1.1 200 OK\r\n')
+            conn.send('Content-Type: text/html\r\n')
+            conn.send('Connection: close\r\n\r\n')
+            conn.sendall(response)
+            conn.close()
+
+            # Add a small delay to avoid brownout issues
+            time.sleep(2)
+
+        except OSError as e:
+            conn.close()
+            print('Connection closed due to error:', e)
+
+# Main function to start the program
+def main():
+    connect_to_wifi()
+    start_web_server()
+
+# Run the main function
+if __name__ == '__main__':
+    main()
+
